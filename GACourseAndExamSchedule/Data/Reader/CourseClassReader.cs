@@ -28,6 +28,7 @@ namespace GACourseAndExamSchedule.Data.Reader
 
         private string _filePath;
         private List<CourseClass> _courseClasses = new List<CourseClass>();
+        private List<CourseClass> _courseClassesWithoutRoomSplit = new List<CourseClass>();
 
         private int _courseColumnNumber = 0;
         private int _prelectorColumnNumber = 0;
@@ -70,6 +71,24 @@ namespace GACourseAndExamSchedule.Data.Reader
             CollectCourseClasss();
 
             return _courseClasses;
+        }
+
+        public List<CourseClass> GetCourseClassesWithoutRoomSplit()
+        {
+            CollectCourseClasss();
+
+            List<string> _calculatedCcs = new List<string>();
+            foreach (CourseClass cc in _courseClasses)
+            {
+                string _ccKey = $"{cc.Course.ID}-{cc.Prelector.ID}-{cc.StudentGroups.Count}-{cc.StudentGroups[0].ID}";
+                if (!_calculatedCcs.Contains(_ccKey))
+                {
+                    _calculatedCcs.Add(_ccKey);
+                    _courseClassesWithoutRoomSplit.Add(cc);
+                }
+            }
+
+            return _courseClassesWithoutRoomSplit;
         }
 
         public List<CourseClass> GetPrelectorCourses(int professorId)

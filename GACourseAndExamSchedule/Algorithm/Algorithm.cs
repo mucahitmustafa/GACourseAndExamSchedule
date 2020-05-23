@@ -32,6 +32,8 @@ namespace GACourseAndExamSchedule.Algorithm
         public static readonly int PARAMETER_REPLACE_BY_GENERATION = int.Parse(ConfigurationManager.AppSettings.Get("algorithm.replaceByGeneration"));
         public static readonly int PARAMETER_TRACK_BEST = int.Parse(ConfigurationManager.AppSettings.Get("algorithm.trackBest"));
 
+        private static bool _isExamProblem = false;
+
         #endregion
 
         #region Public Properties
@@ -150,9 +152,9 @@ namespace GACourseAndExamSchedule.Algorithm
         {
             if (_instance == null)
             {
-                Schedule prototype = new Schedule(PARAMETER_NUMBER_OF_CROSSOVER_POINTS, PARAMETER_MUTAITION_SIZE, PARAMETER_CROSSOVER_PROBABILITY, PARAMETER_MUTAITION_PROBABILITY);
+                Schedule prototype = new Schedule(PARAMETER_NUMBER_OF_CROSSOVER_POINTS, PARAMETER_MUTAITION_SIZE, PARAMETER_CROSSOVER_PROBABILITY, PARAMETER_MUTAITION_PROBABILITY, _isExamProblem);
 
-                _instance = new Algorithm(PARAMETER_NUMBER_OF_CHROMOSOMES, PARAMETER_REPLACE_BY_GENERATION, PARAMETER_TRACK_BEST, prototype, new Schedule.ScheduleObserver());
+                _instance = new Algorithm(PARAMETER_NUMBER_OF_CHROMOSOMES, PARAMETER_REPLACE_BY_GENERATION, PARAMETER_TRACK_BEST, prototype, new Schedule.ScheduleObserver(), _isExamProblem);
             }
 
             return _instance;
@@ -169,8 +171,9 @@ namespace GACourseAndExamSchedule.Algorithm
         }
 
         public Algorithm(int numberOfChromosomes, int replaceByGeneration, int trackBest,
-            Schedule prototype, Schedule.ScheduleObserver observer)
+            Schedule prototype, Schedule.ScheduleObserver observer, bool isExamProblem)
         {
+            _isExamProblem = isExamProblem;
             NumberOfChromosomes = numberOfChromosomes;
             TrackBest = trackBest;
             ReplaceByGeneration = replaceByGeneration;

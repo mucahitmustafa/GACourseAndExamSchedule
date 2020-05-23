@@ -14,10 +14,12 @@ namespace GACourseAndExamSchedule.Data.Writer
         #region Constants and Fields
 
         private string PATH_EXCEL_OUTPUT_DATA;
-        private string FILENAME_OUTPUT = ConfigurationManager.AppSettings.Get("data.output.filename");
+        private string FILENAME_OUTPUT_EXAM_SCHEDULE = ConfigurationManager.AppSettings.Get("data.output.exam.fileName");
+        private string FILENAME_OUTPUT_COURSE_SCHEDULE = ConfigurationManager.AppSettings.Get("data.output.course.fileName");
 
         private const string SHEET_NAME_ROOMS = "Sınıflar";
         private const string SHEET_NAME_GROUPS = "Öğrenciler";
+        private const string SHEET_NAME_PRELECTORS = "Öğretim Görevlileri";
         private const string SHEET_NAME_BRANCHS = "Bölümler";
 
         private const int TABLE_ROW_SPACING = 2;
@@ -48,6 +50,7 @@ namespace GACourseAndExamSchedule.Data.Writer
 
         int _excelFileCount = 1;
 
+        PrelectorReader _prelectorReader = new PrelectorReader();
         RoomReader _roomReader = new RoomReader();
         StudentGroupReader _studentGroupReader = new StudentGroupReader();
 
@@ -112,23 +115,31 @@ namespace GACourseAndExamSchedule.Data.Writer
 
         #region Public Methods
 
-        public void CreateExcelTables(Schedule schedule, List<KeyValuePair<CourseClass, int>> courseClasses)
+        public void CreateExcelTables(Schedule schedule, List<KeyValuePair<CourseClass, int>> courseClasses, bool isExamProblem)
         {
             _ef = new ExcelFile();
 
             SaveRoomsSchedule(schedule, courseClasses);
             SaveGroupsSchedule(schedule, courseClasses);
-            SaveBranchsSchedule(schedule, courseClasses);
+            if (isExamProblem)
+            {
+                SaveBranchsSchedule(schedule, courseClasses);
+            } else
+            {
+                SavePrelectorsSchedule(schedule, courseClasses);
+            }
+
+            string _fileNameForThisProblemType = isExamProblem ? FILENAME_OUTPUT_EXAM_SCHEDULE : FILENAME_OUTPUT_COURSE_SCHEDULE;
 
             DateTime _now = DateTime.Now;
             string _nowDT = _now.ToString().Replace(":", "").Replace(".", "").Replace("/", "");
             string _extension = ".xlsx";
-            if (FILENAME_OUTPUT.EndsWith(".xlsx") || FILENAME_OUTPUT.EndsWith(".xls")) {
-                _extension = FILENAME_OUTPUT.Substring(FILENAME_OUTPUT.LastIndexOf("."));
-                FILENAME_OUTPUT = FILENAME_OUTPUT.Replace(_extension, "");
+            if (_fileNameForThisProblemType.EndsWith(".xlsx") || _fileNameForThisProblemType.EndsWith(".xls")) {
+                _extension = _fileNameForThisProblemType.Substring(_fileNameForThisProblemType.LastIndexOf("."));
+                _fileNameForThisProblemType = _fileNameForThisProblemType.Replace(_extension, "");
             }
 
-            string _fileName = $"{FILENAME_OUTPUT}-{_nowDT}{_extension}";
+            string _fileName = $"{_fileNameForThisProblemType}-{_nowDT}{_extension}";
             _ef.Save($"{PATH_EXCEL_OUTPUT_DATA}{_fileName}");
         }
 
@@ -373,16 +384,83 @@ namespace GACourseAndExamSchedule.Data.Writer
             }
         }
 
+        private void SavePrelectorsSchedule(Schedule schedule, List<KeyValuePair<CourseClass, int>> courseClasses)
+        {
+            List<Prelector> _allPrelectors = _prelectorReader.GetPrelectors();
+            int _sheetCount = ((int)_allPrelectors.Count / 10) + 1;
+
+            int _prelectorsPosition = 0;
+            for (int i = 1; i <= _sheetCount; i++)
+            {
+                int _prelectorCountInThisSheet = Math.Min(10, _allPrelectors.Count - _prelectorsPosition);
+                if (_prelectorCountInThisSheet == 0) break;
+
+                string _sheetName = SHEET_NAME_PRELECTORS + (i > 1 ? $" {i}" : "");
+                ExcelWorksheet _ws = CreateWorksheet(_sheetName);
+                List<Prelector> _prelectors = _allPrelectors.GetRange(_prelectorsPosition, _prelectorCountInThisSheet);
+                _prelectorsPosition += _prelectorCountInThisSheet;
+
+                int _startRow = 0;
+                _prelectors.ForEach(p =>
+                {
+                    CreateTable(_ws, p.Name, _startRow);
+                    _startRow += TIME_SPANS.Length + 1 + TABLE_ROW_SPACING;
+                });
+
+                int _numberOfRooms = Algorithm.Configuration.GetInstance.GetNumberOfRooms();
+                int _daySize = schedule.day_Hours * _numberOfRooms;
+
+                _prelectors.ForEach(prof =>
+                {
+
+                    foreach (KeyValuePair<CourseClass, int> it in courseClasses.Where(cc => cc.Key.Prelector.Equals(prof)).ToList())
+                    {
+                        int _pos = it.Value;
+                        int _day = _pos / _daySize;
+                        int _time = _pos % _daySize;
+                        int _roomId = _time / schedule.day_Hours;
+                        _startRow = _prelectors.IndexOf(prof) * (TABLE_ROW_SPACING + 1 + TIME_SPANS.Length);
+                        _time = (_time % schedule.day_Hours) + _startRow;
+                        int _dur = it.Key.Duration;
+
+                        CourseClass _cc = it.Key;
+                        Room _room = Algorithm.Configuration.GetInstance.GetRoomById(_roomId);
+
+                        string _groups_Name = "";
+                        foreach (var gs in _cc.StudentGroups)
+                        {
+                            _groups_Name += gs.Name + "  ";
+                        }
+                        _groups_Name = _groups_Name.Trim();
+
+                        _ws.Cells[_time + 1, _day + 1].Value = $"{_cc.Course.Name}\n{_room.Name}\n{_groups_Name}";
+                        _ws.Cells[_time + 1, _day + 1].Style = _anyCellStyle;
+
+                        // Merge Cells
+                        try
+                        {
+                            if (_cc.Duration > 1) _ws.Cells.GetSubrangeAbsolute(_time + 1, _day + 1, _time + _dur, _day + 1).Merged = true;
+                            _ws.Cells[_time + 1, _day + 1].Style = _anyCellStyle;
+                        }
+                        catch
+                        {
+                            _ws.Cells[_time + 1, _day + 1].Style.Font.Color = Color.DarkRed;
+                        }
+                    }
+                });
+            }
+        }
+
         private ExcelWorksheet CreateWorksheet(string name)
         {
             if (_ef.Worksheets.Count == 5)
             {
                 if (!PATH_EXCEL_OUTPUT_DATA.EndsWith("/")) PATH_EXCEL_OUTPUT_DATA = PATH_EXCEL_OUTPUT_DATA + "/";
-                _ef.Save($"{PATH_EXCEL_OUTPUT_DATA}{FILENAME_OUTPUT}");
+                _ef.Save($"{PATH_EXCEL_OUTPUT_DATA}{FILENAME_OUTPUT_EXAM_SCHEDULE}");
 
                 _excelFileCount += 1;
                 _ef = new ExcelFile();
-                FILENAME_OUTPUT = FILENAME_OUTPUT + $" ({_excelFileCount})";
+                FILENAME_OUTPUT_EXAM_SCHEDULE = FILENAME_OUTPUT_EXAM_SCHEDULE + $" ({_excelFileCount})";
             }
 
             ExcelWorksheet ws = _ef.Worksheets.Add(name);

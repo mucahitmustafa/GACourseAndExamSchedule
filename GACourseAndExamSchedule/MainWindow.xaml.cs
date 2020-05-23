@@ -180,14 +180,28 @@ namespace GACourseAndExamSchedule
 
         #region Event Handlers
 
-        private void btn_ready_Click(object sender, RoutedEventArgs e)
+        private void btn_readyExam_Click(object sender, RoutedEventArgs e)
         {
             if (_rooms != null && _courses != null && _prelectors != null && _studentGroups != null && _courseClasses != null &&
                 _rooms.Count > 0 && _courses.Count > 0 && _prelectors.Count > 0 && _studentGroups.Count > 0 && _courseClasses.Count > 0)
             {
-                ResultForm resultForm = new ResultForm();
+                ResultForm resultForm = new ResultForm(true);
                 resultForm.Show();
             } else
+            {
+                MessageBox.Show("Verilerin bir veya birkaçı hazır değil veya boş.", "Veri Hazır Değil!", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
+        private void btn_readyCourse_Click(object sender, RoutedEventArgs e)
+        {
+            if (_rooms != null && _courses != null && _prelectors != null && _studentGroups != null && _courseClasses != null &&
+                _rooms.Count > 0 && _courses.Count > 0 && _prelectors.Count > 0 && _studentGroups.Count > 0 && _courseClasses.Count > 0)
+            {
+                ResultForm resultForm = new ResultForm(false);
+                resultForm.Show();
+            }
+            else
             {
                 MessageBox.Show("Verilerin bir veya birkaçı hazır değil veya boş.", "Veri Hazır Değil!", MessageBoxButton.OK, MessageBoxImage.Warning);
             }

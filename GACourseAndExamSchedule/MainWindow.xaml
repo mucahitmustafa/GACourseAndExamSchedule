@@ -19,8 +19,10 @@
                     <RowDefinition Height="100"/>
                 </Grid.RowDefinitions>
 
-                <Button x:Name="btn_ready" Content="Hazır" Click="btn_ready_Click" Margin="20" BorderThickness="4"
-                    Grid.RowSpan="2" Grid.Column="0" Background="Transparent" BorderBrush="Green" FontSize="15"/>
+                <Button x:Name="btn_readyExam" Content="Sınav Takvimi Hazırla" Click="btn_readyExam_Click" Margin="10,20,10,10" BorderThickness="4"
+                    Grid.Row="0" Grid.Column="0" Background="Transparent" BorderBrush="Green" FontSize="15"/>
+                <Button x:Name="btn_readyCourse" Content="Ders Programı Hazırla" Click="btn_readyCourse_Click" Margin="10,10,10,20" BorderThickness="4"
+                    Grid.Row="1" Grid.Column="0" Background="Transparent" BorderBrush="Green" FontSize="15"/>
 
                 <Button x:Name="btn_gaConfig" Content="GA Konfigürasyon" Click="btn_gaConfig_Click" Margin="0,20,0,10" BorderThickness="2"
                     Grid.Column="1" Grid.Row="0" Background="Transparent" BorderBrush="Orange" FontSize="15"/>

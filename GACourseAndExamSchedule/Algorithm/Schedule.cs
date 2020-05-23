@@ -28,12 +28,15 @@ namespace GACourseAndExamSchedule.Algorithm
         Dictionary<CourseClass, int> _classes = new Dictionary<CourseClass, int>();
         public Dictionary<CourseClass, int> GetClasses() { return _classes; }
 
+        private bool _isExamProblem = false;
+
         #endregion
 
         #region Constructors
 
-        public Schedule(int numberOfCrossoverPoints, int mutationSize, int crossoverProbability, int mutationProbability)
+        public Schedule(int numberOfCrossoverPoints, int mutationSize, int crossoverProbability, int mutationProbability, bool isExamProblem)
         {
+            _isExamProblem = isExamProblem;
             MutationSize = mutationSize;
             NumberOfCrossoverPoints = numberOfCrossoverPoints;
             CrossoverProbability = crossoverProbability;
@@ -244,6 +247,21 @@ namespace GACourseAndExamSchedule.Algorithm
 
         public void CalculateFitness()
         {
+            if (_isExamProblem)
+            {
+                CalculateExamScheduleFitness();
+            } else
+            {
+                CalculateCourseScheduleFitness();
+            }
+        }
+
+        #endregion
+
+        #region Private Methods
+
+        public void CalculateExamScheduleFitness()
+        {
             int _score = 0;
 
             int _numberOfRooms = Configuration.GetInstance.GetNumberOfRooms();
@@ -299,7 +317,7 @@ namespace GACourseAndExamSchedule.Algorithm
                 #endregion
 
                 #region Score 4 and 5 and 6 (check for overlapping of classes for branches and student groups && same course exams in same time) [+5][+10][+10]
-         
+
                 bool _bra = false, _gro = false, _sameExamsNotInSameTime = false;
                 for (int i = _numberOfRooms, t = (_day * _daySize + _time); i > 0; i--, t += DAY_HOURS)
                 {
@@ -428,9 +446,162 @@ namespace GACourseAndExamSchedule.Algorithm
             Fitness = (float)_score / (Configuration.GetInstance.GetNumberOfCourseClasses() * NUMBER_OF_SCORES);
         }
 
+        public void CalculateCourseScheduleFitness()
+        {
+            int _score = 0;
+
+            int _numberOfRooms = Configuration.GetInstance.GetNumberOfRooms();
+            int _daySize = DAY_HOURS * _numberOfRooms;
+
+            int _ci = 0;
+
+            foreach (KeyValuePair<CourseClass, int> it in _classes.ToList())
+            {
+                int _pos = it.Value;
+                int _day = _pos / _daySize;
+                int _time = _pos % _daySize;
+                int _roomId = _time / DAY_HOURS;
+                _time = _time % DAY_HOURS;
+                int _dur = it.Key.Duration;
+
+                CourseClass _cc = it.Key;
+                Room _room = Configuration.GetInstance.GetRoomById(_roomId);
+
+                #region Score 1 (check for room overlapping of classes)                                                                     [+10]
+
+                bool _overlapping = false;
+                for (int i = _dur - 1; i >= 0; i--)
+                {
+                    if (_slots[_pos + i].Count > 1)
+                    {
+                        _overlapping = true;
+                        break;
+                    }
+                }
+
+                if (!_overlapping)
+                    _score += 10;
+
+                Criteria[_ci + 0] = !_overlapping;
+
+                #endregion
+
+                #region Score 2 (does current room have enough seats)                                                                       [+10]
+
+                Criteria[_ci + 1] = _room.Capacity >= _cc.StudentCount;
+                if (Criteria[_ci + 1])
+                    _score += 10;
+
+                #endregion
+
+                #region Score 3 (does current room fair)                                                                                    [+5]
+
+                Criteria[_ci + 2] = _cc.RequiresLab.Equals(_room.IsLab);
+                if (Criteria[_ci + 2])
+                    _score += 5;
+
+                #endregion
+
+                #region Score 4 and 5 and 6 (check overlapping of classes for prelectors and student groups and sequential student groups)  [+8][+8][+4]
+
+                bool _pre = false, _gro = false, _seqGro = false;
+                for (int i = _numberOfRooms, t = (_day * _daySize + _time); i > 0; i--, t += DAY_HOURS)
+                {
+                    for (int j = _dur - 1; j >= 0; j--)
+                    {
+                        List<CourseClass> cl = _slots[t + j];
+                        foreach (CourseClass it_cc in cl)
+                        {
+                            if (_cc != it_cc)
+                            {
+                                if (!_pre && _cc.PrelectorOverlaps(it_cc))
+                                    _pre = true;
+
+                                if (!_gro && _cc.GroupsOverlap(it_cc))
+                                    _gro = true;
+
+                                if (!_seqGro && _cc.SequentialGroupsOverlap(it_cc))
+                                    _seqGro = true;
+
+                                if (_pre && _gro && _seqGro)
+                                    goto total_overlap;
+                            }
+                        }
+                    }
+                }
+
+            total_overlap:
+
+                if (!_pre)
+                    _score += 8;
+                Criteria[_ci + 3] = !_pre;
+
+                if (!_gro)
+                    _score += 8;
+                Criteria[_ci + 4] = !_gro;
+
+                if (!_seqGro)
+                    _score += 4;
+                Criteria[_ci + 5] = !_seqGro;
+
+                #endregion
+
+                #region Score 7 (check course limit in one day for student groups)                                                          [+3]
+
+                bool _limitExceeded = false;
+                foreach (StudentGroup group in _cc.StudentGroups)
+                {
+                    int hourInDay = 0;
+                    for (int j = 0; j < DAY_HOURS; j++)
+                    {
+                        List<CourseClass> courseClassesInTime = _slots[_day * _daySize + j];
+                        foreach (CourseClass cc_it in courseClassesInTime)
+                        {
+                            if (cc_it.StudentGroups.Contains(group)) hourInDay++;
+                        }
+                    }
+
+                    if (hourInDay > group.MaxHourInDay)
+                    {
+                        _limitExceeded = true;
+                        break;
+                    }
+                }
+
+                if (!_limitExceeded)
+                {
+                    _score += 3;
+                }
+                Criteria[_ci + 6] = !_limitExceeded;
+
+
+                #endregion
+
+                #region Score 8 (check this class day in prelector schedule table)                                                          [+2]
+
+                Criteria[_ci + 7] = true;
+                for (int i = 0; i < _dur; i++)
+                {
+                    if (!_cc.Prelector.ScheduleDays[_day])
+                    {
+                        Criteria[_ci + 7] = false;
+                        break;
+                    }
+                }
+                if (Criteria[_ci + 7])
+                    _score += 2;
+
+                #endregion
+
+                _ci += NUMBER_OF_SCORES;
+            }
+
+            Fitness = (float)_score / (Configuration.GetInstance.GetNumberOfCourseClasses() * NUMBER_OF_SCORES);
+        }
+
+
 
         #endregion
-
 
         public class ScheduleObserver
         {

@@ -70,5 +70,22 @@ namespace GACourseAndExamSchedule.Algorithm
             return false;
         }
 
+        public bool SequentialGroupsOverlap(CourseClass courseClass)
+        {
+            foreach (StudentGroup group1 in StudentGroups)
+            {
+                foreach (StudentGroup group2 in courseClass.StudentGroups)
+                {
+                    if (group1 == group2 || ((group1.Branch == group2.Branch) && (Math.Abs(group1.Degree - group2.Degree) == 1))) return true;
+                }
+            }
+            return false;
+        }
+
+        public bool PrelectorOverlaps(CourseClass courseClass)
+        {
+            return Prelector == courseClass.Prelector;
+        }
+
     }
 }
