@@ -32,7 +32,7 @@ namespace GACourseAndExamSchedule.Views
         Data.Writer.ExcelDataWriter _excelWriter = new Data.Writer.ExcelDataWriter();
         StatisticsRecorderBase _statisticsRecorder;
 
-        CourseClassReader courseClassReader = new CourseClassReader();
+        CourseClassReader courseClassReader;
         CourseReader courseReader = new CourseReader();
         PrelectorReader prelectorReader = new PrelectorReader();
         RoomReader roomReader = new RoomReader();
@@ -55,7 +55,8 @@ namespace GACourseAndExamSchedule.Views
         public ResultForm(bool isExamProblem)
         {
             InitializeComponent();
-            this._isExamProblem = isExamProblem;
+            _isExamProblem = isExamProblem;
+            courseClassReader = new CourseClassReader(isExamProblem);
         }
 
         private void ResultForm_Load(object sender, EventArgs e)
@@ -64,6 +65,8 @@ namespace GACourseAndExamSchedule.Views
             courses = courseReader.GetCourses();
             prelectors = prelectorReader.GetPrelectors();
             studentGroups = studentGroupReader.GetStudentGroups();
+
+            courseClassReader.ResetData();
             if (_isExamProblem)
             {
                 courseClasses = courseClassReader.GetCourseClasses();
@@ -176,12 +179,12 @@ namespace GACourseAndExamSchedule.Views
 
         private void btnStart_Click(object sender, EventArgs e)
         {
-            lblFitness.Text = "0.00000";
             _statisticsRecorder = new StatisticsRecorderBase();
             if (_state == ThreadState.Unstarted || _state == ThreadState.Stopped)
             {
                 if (Algorithm.Algorithm.GetInstance().Start())
                 {
+                    lblFitness.Text = "0.00000";
                     btnPause.Enabled = true;
                     btnStop.Enabled = true;
                     btnStart.Enabled = false;
@@ -213,6 +216,7 @@ namespace GACourseAndExamSchedule.Views
             {
                 if (Algorithm.Algorithm.GetInstance().Pause())
                 {
+                    timerWorkingSet.Stop();
                     _state = ThreadState.Suspended;
                     btnStart.Enabled = true;
                     btnPause.Enabled = false;
@@ -299,9 +303,9 @@ namespace GACourseAndExamSchedule.Views
 
         private int ConvertTimeToSeconds(string timeStr)
         {
-            string _hour = timeStr.Substring(0, timeStr.IndexOf(":")).Replace(":", "");
+            string _hour = timeStr.Substring(0, 2).Replace(":", "");
+            string _min = timeStr.Substring(timeStr.IndexOf(":") + 1, 2).Replace(":", "");
             string _sec = timeStr.Substring(timeStr.LastIndexOf(":")).Replace(":", "");
-            string _min = timeStr.Substring(timeStr.IndexOf(":"), timeStr.LastIndexOf(":")).Replace(":", "");
 
             return int.Parse(_sec) + (int.Parse(_min) * 60) + (int.Parse(_hour) * 3600);
         }

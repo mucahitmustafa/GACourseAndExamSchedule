@@ -25,7 +25,7 @@ namespace GACourseAndExamSchedule
         RoomReader _roomReader = new RoomReader();
         CourseReader _courseReader = new CourseReader();
         PrelectorReader _prelectorReader = new PrelectorReader();
-        CourseClassReader _courseClassReader = new CourseClassReader();
+        CourseClassReader _courseClassReader = new CourseClassReader(false);
         StudentGroupReader _studentGroupReader = new StudentGroupReader();
 
         List<Room> _rooms;
@@ -120,14 +120,17 @@ namespace GACourseAndExamSchedule
             lbl_count_group.Content = _studentGroups == null ? 0 : _studentGroups.Count;
 
             int _courseClassesCount = 0;
-            List<string> _calculatedCcs = new List<string>();
-            foreach (CourseClass cc in _courseClasses)
+            if (_courseClasses != null)
             {
-                string _ccKey = $"{cc.Course.ID}-{cc.Prelector.ID}-{cc.StudentGroups.Count}-{cc.StudentGroups[0].ID}";
-                if (!_calculatedCcs.Contains(_ccKey))
+                List<string> _calculatedCcs = new List<string>();
+                foreach (CourseClass cc in _courseClasses)
                 {
-                    _calculatedCcs.Add(_ccKey);
-                    _courseClassesCount++;
+                    string _ccKey = $"{cc.Course.ID}-{cc.Prelector.ID}-{cc.StudentGroups.Count}-{cc.StudentGroups[0].ID}";
+                    if (!_calculatedCcs.Contains(_ccKey))
+                    {
+                        _calculatedCcs.Add(_ccKey);
+                        _courseClassesCount++;
+                    }
                 }
             }
 
@@ -227,7 +230,7 @@ namespace GACourseAndExamSchedule
             _roomReader = new RoomReader();
             _courseReader = new CourseReader();
             _prelectorReader = new PrelectorReader();
-            _courseClassReader = new CourseClassReader();
+            _courseClassReader = new CourseClassReader(false);
             _studentGroupReader = new StudentGroupReader();
 
             CollectData();

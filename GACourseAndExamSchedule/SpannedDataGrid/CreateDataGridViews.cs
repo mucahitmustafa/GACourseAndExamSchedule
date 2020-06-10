@@ -307,20 +307,18 @@ namespace GACourseAndExamSchedule.SpannedDataGrid
                     ClearDataGridView(it.Value);
                 }
                 int numberOfRooms = Configuration.GetInstance.GetNumberOfRooms();
-                int daySize = schedule.day_Hours * numberOfRooms;
+                int _daySize = schedule.day_Hours * schedule.day_count;
                 Random rand = new Random();
                 foreach (KeyValuePair<CourseClass, int> it in schedule.GetClasses().ToList())
                 {
-                    int pos = it.Value;
-                    int day = pos / daySize;
-                    int time = pos % daySize;
-                    int room = time / schedule.day_Hours;
-                    time = time % schedule.day_Hours;
-
-                    int dur = it.Key.Duration;
+                    int _pos = it.Value;
+                    int _roomId = _pos / _daySize;
+                    int _dayTime = _pos % _daySize;
+                    int _day = _dayTime / schedule.day_Hours;
+                    int _time = _dayTime % schedule.day_Hours;
 
                     CourseClass cc = it.Key;
-                    Room r = Configuration.GetInstance.GetRoomById(room);
+                    Room r = Configuration.GetInstance.GetRoomById(_roomId);
                     string groups_Name = "";
                     foreach (var gs in cc.StudentGroups)
                     {
@@ -328,8 +326,8 @@ namespace GACourseAndExamSchedule.SpannedDataGrid
                     }
                     groups_Name = groups_Name.Trim();
 
-                    ((DataGridViewTextBoxCellEx)dgvList[r.ID][day + 1, time]).RowSpan = cc.Duration;
-                    dgvList[r.ID][day + 1, time].Value = string.Format(CultureInfo.CurrentCulture,
+                    ((DataGridViewTextBoxCellEx)dgvList[r.ID][_day + 1, _time]).RowSpan = cc.Duration;
+                    dgvList[r.ID][_day + 1, _time].Value = string.Format(CultureInfo.CurrentCulture,
                         "{0}\r\n{1}\r\n{2}", cc.Course.Name, cc.Prelector.Name, groups_Name);
                 }
             }

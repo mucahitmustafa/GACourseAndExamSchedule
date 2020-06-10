@@ -14,6 +14,7 @@ namespace GACourseAndExamSchedule.Algorithm
         public const int DAY_HOURS = 9;
         public const int DAYS_COUNT = 5;
         public int day_Hours { get { return DAY_HOURS; } }
+        public int day_count { get { return DAYS_COUNT; } }
 
         private const int NUMBER_OF_SCORES = 50;
 
@@ -47,7 +48,7 @@ namespace GACourseAndExamSchedule.Algorithm
             for (int p = 0; p < (DAYS_COUNT * DAY_HOURS * Configuration.GetInstance.GetNumberOfRooms()); p++)
                 _slots[p] = new List<CourseClass>();
 
-            Criteria = new bool[(Configuration.GetInstance.GetNumberOfCourseClasses() * NUMBER_OF_SCORES)];
+            Criteria = new bool[(Configuration.GetInstance.GetNumberOfCourseClasses() * 8)];
         }
 
         public Schedule(Schedule c, bool setupOnly)
@@ -58,7 +59,7 @@ namespace GACourseAndExamSchedule.Algorithm
                 for (int ptr = 0; ptr < (DAYS_COUNT * DAY_HOURS * Configuration.GetInstance.GetNumberOfRooms()); ptr++)
                     _slots[ptr] = new List<CourseClass>();
 
-                Criteria = new bool[(Configuration.GetInstance.GetNumberOfCourseClasses() * NUMBER_OF_SCORES)];
+                Criteria = new bool[(Configuration.GetInstance.GetNumberOfCourseClasses() * 8)];
             }
             else
             {
@@ -67,6 +68,7 @@ namespace GACourseAndExamSchedule.Algorithm
                 Criteria = c.Criteria;
                 Fitness = c.Fitness;
             }
+            _isExamProblem = c._isExamProblem;
 
             NumberOfCrossoverPoints = c.NumberOfCrossoverPoints;
             MutationSize = c.MutationSize;
@@ -90,18 +92,27 @@ namespace GACourseAndExamSchedule.Algorithm
             Random _rnd = new Random();
             List<CourseClass> _ccS = Configuration.GetInstance.GetCourseClasses().OrderBy(x => x.Course.ID).ToList();
             int _numberOfRooms = Configuration.GetInstance.GetNumberOfRooms();
+            List<int> _labIds = Configuration.GetInstance.Rooms.Where(x => x.Value.IsLab).Select(x => x.Key).ToList();
+            List<int> _roomIdsThatsNotLab = Configuration.GetInstance.Rooms.Where(x => !x.Value.IsLab).Select(x => x.Key).ToList();
             int _day = 0, _time = 0;
             foreach (CourseClass _cc in _ccS)
             {
                 int _dur = _cc.Duration;
-                int _room = _rnd.Next() % _numberOfRooms;
+                int _roomId = 0;
+                if (_cc.RequiresLab)
+                {
+                    _roomId = _labIds[_rnd.Next() % _labIds.Count];
+                } else
+                {
+                    _roomId = _roomIdsThatsNotLab[_rnd.Next() % _roomIdsThatsNotLab.Count];
+                }
                 int _index = _ccS.IndexOf(_cc);
-                if (_index == 0 || _cc.Course != _ccS[_index - 1].Course)
+                if (!_isExamProblem || _index == 0 || _cc.Course != _ccS[_index - 1].Course)
                 {
                     _day = _rnd.Next() % DAYS_COUNT;
                     _time = _rnd.Next() % (DAY_HOURS + 1 - _dur);
                 }
-                int _pos = (_day * _numberOfRooms * DAY_HOURS) + (_room * DAY_HOURS) + _time;
+                int _pos = (_roomId * DAY_HOURS * DAYS_COUNT) + (_day * DAY_HOURS) + _time;
 
                 for (int i = _dur - 1; i >= 0; i--)
                     newChromosome._slots[_pos + i].Add(_cc);
@@ -167,7 +178,6 @@ namespace GACourseAndExamSchedule.Algorithm
                     first = !first;
             }
 
-            _child.CalculateFitness();
             return _child;
         }
 
@@ -183,66 +193,75 @@ namespace GACourseAndExamSchedule.Algorithm
             {
                 int mpos = _rnd.Next() % _numberOfClasses;
                 KeyValuePair<CourseClass, int> it = _classes.ToList<KeyValuePair<CourseClass, int>>()[mpos];
-                List<KeyValuePair<CourseClass, int>> _classesWithSameCourse = _classes.Where(x => x.Key.Course == it.Key.Course).ToList();
-                if (_classesWithSameCourse.Contains(it)) _classesWithSameCourse.Remove(it);
 
-                int pos1 = it.Value;
-                CourseClass cc1 = it.Key;
+                int _pos1 = it.Value;
+                CourseClass _cc1 = it.Key;
 
-                int nr = Configuration.GetInstance.GetNumberOfRooms();
-                int dur = cc1.Duration;
-                int day = _rnd.Next() % DAYS_COUNT;
-                int room = _rnd.Next() % nr;
-                int time = _rnd.Next() % (DAY_HOURS + 1 - dur);
-                int pos2 = day * nr * DAY_HOURS + room * DAY_HOURS + time;
-
-                for (int j = dur - 1; j >= 0; j--)
+                int _nr = Configuration.GetInstance.GetNumberOfRooms();
+                List<int> _labIds = Configuration.GetInstance.Rooms.Where(x => x.Value.IsLab).Select(x => x.Key).ToList();
+                List<int> _roomIdsThatsNotLab = Configuration.GetInstance.Rooms.Where(x => !x.Value.IsLab).Select(x => x.Key).ToList();
+                int _dur = _cc1.Duration;
+                int _day = _rnd.Next() % DAYS_COUNT;
+                int _roomId = 0;
+                if (_cc1.RequiresLab)
                 {
-                    List<CourseClass> cl = _slots[pos1 + j];
-                    foreach (CourseClass It in cl)
-                    {
-                        if (It == cc1)
-                        {
-                            cl.Remove(It);
-                            break;
-                        }
-                    }
-
-                    _slots[pos2 + j].Add(cc1);
+                    _roomId = _labIds[_rnd.Next() % _labIds.Count];
+                }
+                else
+                {
+                    _roomId = _roomIdsThatsNotLab[_rnd.Next() % _roomIdsThatsNotLab.Count];
+                }
+                int _time = _rnd.Next() % (DAY_HOURS + 1 - _dur);
+                int _pos2 = (_roomId * DAY_HOURS * DAYS_COUNT) + (_day * DAY_HOURS) + _time;
+                if (_slots[_pos2].Count > 1)
+                {
+                    _roomId = _rnd.Next() % _nr;
+                    _pos2 = (_roomId * DAY_HOURS * DAYS_COUNT) + (_day * DAY_HOURS) + _time;
                 }
 
-                _classes[cc1] = pos2;
-
-                if (_classesWithSameCourse.Count > 0)
+                for (int j = _dur - 1; j >= 0; j--)
                 {
-                    foreach(KeyValuePair<CourseClass, int> sameCourse in _classesWithSameCourse)
-                    {
-                        int _posOld = sameCourse.Value;
-                        int _newRoom = _rnd.Next() % nr;
-                        int _posNew = day * nr * DAY_HOURS + _newRoom * DAY_HOURS + time;
+                    List<CourseClass> cl = _slots[_pos1 + j];
+                    _slots[_pos1 + j].Remove(_cc1);
+                    _slots[_pos2 + j].Add(_cc1);
+                }
 
-                        for (int j = dur - 1; j >= 0; j--)
+                _classes[_cc1] = _pos2;
+
+                if (_isExamProblem)
+                {
+                    List<KeyValuePair<CourseClass, int>> _classesWithSameCourse = _classes.Where(x => x.Key.Course == it.Key.Course).ToList();
+                    if (_classesWithSameCourse.Count > 0)
+                    {
+                        foreach (KeyValuePair<CourseClass, int> sameCourse in _classesWithSameCourse)
                         {
-                            List<CourseClass> cl = _slots[_posOld + j];
-                            foreach (CourseClass It in cl)
+                            if (sameCourse.Key == it.Key) continue;
+
+                            int _posOld = sameCourse.Value;
+                            int _newRoom = _rnd.Next() % _nr;
+                            int _posNew = (_newRoom * DAY_HOURS * DAYS_COUNT) + (_day * DAY_HOURS) + _time;
+
+                            for (int j = _dur - 1; j >= 0; j--)
                             {
-                                if (It == sameCourse.Key)
+                                List<CourseClass> cl = _slots[_posOld + j];
+                                foreach (CourseClass It in cl)
                                 {
-                                    cl.Remove(It);
-                                    break;
+                                    if (It == sameCourse.Key)
+                                    {
+                                        cl.Remove(It);
+                                        break;
+                                    }
                                 }
+
+                                _slots[_posNew + j].Add(sameCourse.Key);
                             }
 
-                            _slots[_posNew + j].Add(sameCourse.Key);
+                            _classes[sameCourse.Key] = _posNew;
                         }
 
-                        _classes[sameCourse.Key] = _posNew;
                     }
-                    
                 }
-            }
-            
-            CalculateFitness();
+            }            
         }
 
         public void CalculateFitness()
@@ -265,23 +284,22 @@ namespace GACourseAndExamSchedule.Algorithm
             int _score = 0;
 
             int _numberOfRooms = Configuration.GetInstance.GetNumberOfRooms();
-            int _daySize = DAY_HOURS * _numberOfRooms;
-
+            int _daySize = DAY_HOURS * DAYS_COUNT;
             int _ci = 0;
 
             foreach (KeyValuePair<CourseClass, int> it in _classes.ToList())
             {
                 int _pos = it.Value;
-                int _day = _pos / _daySize;
-                int _time = _pos % _daySize;
-                int _roomId = _time / DAY_HOURS;
-                _time %= DAY_HOURS;
+                int _roomId = _pos / _daySize;
+                int _dayTime = _pos % _daySize;
+                int _day = _dayTime / DAY_HOURS;
+                int _time = _dayTime % DAY_HOURS;
                 int _dur = it.Key.Duration;
 
                 CourseClass _cc = it.Key;
                 Room _room = Configuration.GetInstance.GetRoomById(_roomId);
 
-                #region Score 1 (check for room overlapping of classes)                                                                          [+7]
+                #region Score 1 (check for room overlapping of classes)                                                                          [+10]
 
                 bool _overlapping = false;
                 for (int i = _dur - 1; i >= 0; i--)
@@ -294,17 +312,17 @@ namespace GACourseAndExamSchedule.Algorithm
                 }
 
                 if (!_overlapping)
-                    _score += 7;
+                    _score += 10;
 
                 Criteria[_ci + 0] = !_overlapping;
 
                 #endregion
 
-                #region Score 2 (does current room have enough seats)                                                                            [+10]
+                #region Score 2 (does current room have enough seats)                                                                            [+7]
 
                 Criteria[_ci + 1] = _room.Capacity >= _cc.StudentCount;
                 if (Criteria[_ci + 1])
-                    _score += 10;
+                    _score += 7;
 
                 #endregion
 
@@ -316,94 +334,92 @@ namespace GACourseAndExamSchedule.Algorithm
 
                 #endregion
 
-                #region Score 4 and 5 and 6 (check for overlapping of classes for branches and student groups && same course exams in same time) [+5][+10][+10]
-
-                bool _bra = false, _gro = false, _sameExamsNotInSameTime = false;
-                for (int i = _numberOfRooms, t = (_day * _daySize + _time); i > 0; i--, t += DAY_HOURS)
+                #region Score 4 and 5 (check for overlapping of classes for branches and student groups)                                         [+8][+10]
+                
+                List<CourseClass> _courseClassesOnSameTime = new List<CourseClass>();
+                for (int j = 0; j < _numberOfRooms; j++) 
                 {
-                    List<CourseClass> _courseClassesOnSameTime = new List<CourseClass>();
-                    for (int j = 0; j < _numberOfRooms; j++)
+                    for (int i = 0; i < _dur; i++)
                     {
-                        int _roomChangeIndex = (DAYS_COUNT * DAY_HOURS) * j;
-                        _courseClassesOnSameTime.AddRange(_slots[_time + _roomChangeIndex]);
-                    }
-
-                    for (int j = _dur - 1; j >= 0; j--)
-                    {
-                        List<CourseClass> cl = _slots[t + j];
-                        foreach (CourseClass it_cc in cl)
+                        foreach (CourseClass cc in _slots[(j * DAYS_COUNT * DAY_HOURS) + (_day * DAY_HOURS) + _time + i])
                         {
-                            if (_cc != it_cc)
-                            {
-                                if (!_bra && _cc.BranchsOverlaps(it_cc))
-                                    _bra = true;
-
-                                if (!_gro && _cc.GroupsOverlap(it_cc))
-                                    _gro = true;
-
-                                if (_bra && _gro)
-                                    goto total_overlap;
-                            }
-                        }
-
-                        List<CourseClass> _courseClassesWithSameCourse = Configuration.GetInstance.GetCourseClassesWithCourse(_cc.Course);
-                        _courseClassesWithSameCourse.Remove(_cc);
-                        if (_courseClassesWithSameCourse.Count > 0)
-                        {
-                            foreach (CourseClass it_cc in _courseClassesWithSameCourse)
-                            {
-                                if (!_courseClassesOnSameTime.Contains(it_cc))
-                                {
-                                    if (!_sameExamsNotInSameTime && _cc.Course == it_cc.Course)
-                                        _sameExamsNotInSameTime = true;
-                                }
-                            }
+                            if (cc != _cc && !_courseClassesOnSameTime.Contains(cc)) _courseClassesOnSameTime.Add(cc);
                         }
                     }
                 }
 
-            total_overlap:
+                bool _bra = false, _gro = false;
+                foreach (CourseClass it_cc in _courseClassesOnSameTime)
+                {
+                    if (_cc != it_cc)
+                    {
+                        if (!_bra && _cc.BranchsOverlaps(it_cc))
+                            _bra = true;
+
+                        if (!_gro && _cc.GroupsOverlap(it_cc))
+                            _gro = true;
+
+                        if (_bra && _gro) break;
+                    }
+                }
 
                 if (!_bra)
-                    _score += 5;
+                    _score += 8;
                 Criteria[_ci + 3] = !_bra;
 
                 if (!_gro)
                     _score += 10;
                 Criteria[_ci + 4] = !_gro;
 
+                #endregion
+
+                #region Score 6 (check for same course exams in same time)                                                                       [+7]
+
+                List<CourseClass> _courseClassesWithSameCourse = _classes.Keys.Where(x => x.Course.ID == _cc.Course.ID).ToList();
+                _courseClassesWithSameCourse.Remove(_cc);
+
+                bool _sameExamsNotInSameTime = false;
+                if (_courseClassesWithSameCourse.Count > 0)
+                {
+                    foreach (CourseClass it_cc in _courseClassesWithSameCourse)
+                    {
+                        if (!_sameExamsNotInSameTime && !_courseClassesOnSameTime.Contains(it_cc)) _sameExamsNotInSameTime = true;
+                    }
+                }
+
                 if (!_sameExamsNotInSameTime)
-                    _score += 10;
+                    _score += 7;
                 Criteria[_ci + 5] = !_sameExamsNotInSameTime;
 
                 #endregion
 
                 #region Score 7 (check difficulty limit in one day for student groups)                                                           [+3]
 
+                List<CourseClass> _courseClassesOnSameDay = new List<CourseClass>();
+                for (int k = 0; k < _numberOfRooms; k++)
+                {
+                    for (int t = 0; t < DAY_HOURS; t++)
+                    {
+                        foreach (CourseClass cc in _slots[(DAYS_COUNT * DAY_HOURS * k) + (_day * DAY_HOURS) + t])
+                        {
+                            if (!_courseClassesOnSameDay.Contains(cc)) _courseClassesOnSameDay.Add(cc);
+                        }
+                    }
+                }
+
                 bool _limitExceeded = false;
                 foreach (StudentGroup group in _cc.StudentGroups)
                 {
-                    List<CourseClass> _courseClassesInThisDay = new List<CourseClass>();
+                    List<CourseClass> _courseClassesOnSameDayForGroup = new List<CourseClass>();
                     int _diffInDay = 0;
-                    for (int j = 0; j < DAY_HOURS; j++)
+                    foreach (CourseClass cc_it in _courseClassesOnSameDay)
                     {
                         if (_limitExceeded) break;
 
-                        List<CourseClass> _courseClassesOnSameDay = new List<CourseClass>();
-                        for (int k = 0; k < _numberOfRooms; k++)
+                        if (!_courseClassesOnSameDayForGroup.Contains(cc_it) && cc_it.StudentGroups.Contains(group))
                         {
-                            int _roomChangeIndex = (DAYS_COUNT * DAY_HOURS) * k;
-                            _courseClassesOnSameDay.AddRange(_slots[(_day * DAY_HOURS) + j + _roomChangeIndex]);
-                        }
-
-                        foreach (CourseClass cc_it in _courseClassesOnSameDay)
-                        {
-                            if (_limitExceeded) break;
-                            if (!_courseClassesInThisDay.Contains(cc_it) && cc_it.StudentGroups.Contains(group))
-                            {
-                                _courseClassesInThisDay.Add(cc_it);
-                                _diffInDay += cc_it.Difficulty;
-                            }
+                            _courseClassesOnSameDayForGroup.Add(cc_it);
+                            _diffInDay += cc_it.Difficulty;
                         }
                     }
 
@@ -412,7 +428,6 @@ namespace GACourseAndExamSchedule.Algorithm
                         _limitExceeded = true;
                         break;
                     }
-                    if (_limitExceeded) break;
                 }
 
                 if (!_limitExceeded)
@@ -426,17 +441,8 @@ namespace GACourseAndExamSchedule.Algorithm
 
                 #region Score 8 (check this exam day in prelector schedule table)                                                                [+2]
 
-                Criteria[_ci + 7] = true;
-                for (int i = 0; i < _dur; i++)
-                {
-                    if (!_cc.Prelector.ScheduleDays[_day])
-                    {
-                        Criteria[_ci + 7] = false;
-                        break;
-                    }
-                }
-                if (Criteria[_ci + 7])
-                    _score += 2;
+                Criteria[_ci + 7] = _cc.Prelector.ScheduleDays[_day];
+                if (Criteria[_ci + 7]) _score += 2;
 
                 #endregion
 
@@ -449,19 +455,16 @@ namespace GACourseAndExamSchedule.Algorithm
         public void CalculateCourseScheduleFitness()
         {
             int _score = 0;
-
             int _numberOfRooms = Configuration.GetInstance.GetNumberOfRooms();
-            int _daySize = DAY_HOURS * _numberOfRooms;
-
+            int _daySize = DAY_HOURS * DAYS_COUNT;
             int _ci = 0;
-
             foreach (KeyValuePair<CourseClass, int> it in _classes.ToList())
             {
                 int _pos = it.Value;
-                int _day = _pos / _daySize;
-                int _time = _pos % _daySize;
-                int _roomId = _time / DAY_HOURS;
-                _time = _time % DAY_HOURS;
+                int _roomId = _pos / _daySize;
+                int _dayTime = _pos % _daySize;
+                int _day = _dayTime / DAY_HOURS;
+                int _time = _dayTime % DAY_HOURS;
                 int _dur = it.Key.Duration;
 
                 CourseClass _cc = it.Key;
@@ -470,7 +473,7 @@ namespace GACourseAndExamSchedule.Algorithm
                 #region Score 1 (check for room overlapping of classes)                                                                     [+10]
 
                 bool _overlapping = false;
-                for (int i = _dur - 1; i >= 0; i--)
+                for (int i = 0; i < _dur; i++)
                 {
                     if (_slots[_pos + i].Count > 1)
                     {
@@ -486,82 +489,95 @@ namespace GACourseAndExamSchedule.Algorithm
 
                 #endregion
 
-                #region Score 2 (does current room have enough seats)                                                                       [+10]
+                #region Score 2 (does current room have enough seats)                                                                       [+7]
 
                 Criteria[_ci + 1] = _room.Capacity >= _cc.StudentCount;
-                if (Criteria[_ci + 1])
-                    _score += 10;
+                if (Criteria[_ci + 1]) _score += 7;
 
                 #endregion
 
-                #region Score 3 (does current room fair)                                                                                    [+5]
+                #region Score 3 (does current room fair)                                                                                    [+4]
 
                 Criteria[_ci + 2] = _cc.RequiresLab.Equals(_room.IsLab);
-                if (Criteria[_ci + 2])
-                    _score += 5;
+                if (Criteria[_ci + 2]) _score += 4;
 
                 #endregion
 
-                #region Score 4 and 5 and 6 (check overlapping of classes for prelectors and student groups and sequential student groups)  [+8][+8][+4]
+                #region Score 4 and 5 and 6 (check overlapping of classes for prelectors and student groups and sequential student groups)  [+10][+10][+5]
 
                 bool _pre = false, _gro = false, _seqGro = false;
-                for (int i = _numberOfRooms, t = (_day * _daySize + _time); i > 0; i--, t += DAY_HOURS)
+                List<CourseClass> _courseClassesOnSameTime = new List<CourseClass>();
+                for (int j = 0; j < _numberOfRooms; j++)
                 {
-                    for (int j = _dur - 1; j >= 0; j--)
+                    for (int i = 0; i < _dur; i++) 
                     {
-                        List<CourseClass> cl = _slots[t + j];
-                        foreach (CourseClass it_cc in cl)
+                        List<CourseClass> _ccs = _slots[(j * DAYS_COUNT * DAY_HOURS) + (_day * DAY_HOURS) + _time + i];
+                        foreach(CourseClass cc in _ccs)
                         {
-                            if (_cc != it_cc)
-                            {
-                                if (!_pre && _cc.PrelectorOverlaps(it_cc))
-                                    _pre = true;
-
-                                if (!_gro && _cc.GroupsOverlap(it_cc))
-                                    _gro = true;
-
-                                if (!_seqGro && _cc.SequentialGroupsOverlap(it_cc))
-                                    _seqGro = true;
-
-                                if (_pre && _gro && _seqGro)
-                                    goto total_overlap;
-                            }
+                            if (cc.ID != _cc.ID && !_courseClassesOnSameTime.Contains(cc)) _courseClassesOnSameTime.Add(cc);
                         }
                     }
                 }
 
-            total_overlap:
+                foreach (CourseClass it_cc in _courseClassesOnSameTime)
+                {
+                    if (!_pre && _cc.PrelectorOverlaps(it_cc))
+                        _pre = true;
+
+                    if (!_gro && _cc.GroupsOverlap(it_cc))
+                        _gro = true;
+
+                    if (!_seqGro && _cc.SequentialGroupsOverlap(it_cc))
+                        _seqGro = true;
+
+                    if (_pre && _gro && _seqGro) break;
+                }
 
                 if (!_pre)
-                    _score += 8;
+                    _score += 10;
                 Criteria[_ci + 3] = !_pre;
 
                 if (!_gro)
-                    _score += 8;
+                    _score += 10;
                 Criteria[_ci + 4] = !_gro;
 
                 if (!_seqGro)
-                    _score += 4;
+                    _score += 5;
                 Criteria[_ci + 5] = !_seqGro;
 
                 #endregion
 
-                #region Score 7 (check course limit in one day for student groups)                                                          [+3]
+                #region Score 7 (check course limit in one day for student groups)                                                          [+2]
+
+                List<CourseClass> _courseClassesOnSameDay = new List<CourseClass>();
+                for (int k = 0; k < _numberOfRooms; k++)
+                {
+                    for (int t = 0; t < DAY_HOURS; t++)
+                    {
+                        foreach(CourseClass cc in _slots[(DAYS_COUNT * DAY_HOURS * k) + (_day * DAY_HOURS) + t])
+                        {
+                            if (!_courseClassesOnSameDay.Contains(cc)) _courseClassesOnSameDay.Add(cc);
+                        }
+                    }
+                }
 
                 bool _limitExceeded = false;
                 foreach (StudentGroup group in _cc.StudentGroups)
                 {
-                    int hourInDay = 0;
-                    for (int j = 0; j < DAY_HOURS; j++)
+                    List<CourseClass> _courseClassesInSameDayForGroup = new List<CourseClass>();
+                    int _totalCourseHourInADayForGroup = 0;
+                    foreach (CourseClass cc_it in _courseClassesOnSameDay)
                     {
-                        List<CourseClass> courseClassesInTime = _slots[_day * _daySize + j];
-                        foreach (CourseClass cc_it in courseClassesInTime)
+                        if (_limitExceeded) break;
+
+                        if (!_courseClassesInSameDayForGroup.Contains(cc_it) && cc_it.StudentGroups.Contains(group))
                         {
-                            if (cc_it.StudentGroups.Contains(group)) hourInDay++;
+                            _courseClassesInSameDayForGroup.Add(cc_it);
+                            _totalCourseHourInADayForGroup += cc_it.Duration;
                         }
                     }
 
-                    if (hourInDay > group.MaxHourInDay)
+                    if (!_limitExceeded && _totalCourseHourInADayForGroup > group.MaxHourInDay)
                     {
                         _limitExceeded = true;
                         break;
@@ -570,36 +586,24 @@ namespace GACourseAndExamSchedule.Algorithm
 
                 if (!_limitExceeded)
                 {
-                    _score += 3;
+                    _score += 2;
                 }
                 Criteria[_ci + 6] = !_limitExceeded;
-
 
                 #endregion
 
                 #region Score 8 (check this class day in prelector schedule table)                                                          [+2]
 
-                Criteria[_ci + 7] = true;
-                for (int i = 0; i < _dur; i++)
-                {
-                    if (!_cc.Prelector.ScheduleDays[_day])
-                    {
-                        Criteria[_ci + 7] = false;
-                        break;
-                    }
-                }
-                if (Criteria[_ci + 7])
-                    _score += 2;
+                Criteria[_ci + 7] = _cc.Prelector.ScheduleDays[_day];
+                if (Criteria[_ci + 7]) _score += 2;
 
                 #endregion
 
-                _ci += NUMBER_OF_SCORES;
+                _ci += 8;
             }
 
             Fitness = (float)_score / (Configuration.GetInstance.GetNumberOfCourseClasses() * NUMBER_OF_SCORES);
         }
-
-
 
         #endregion
 
@@ -609,7 +613,7 @@ namespace GACourseAndExamSchedule.Algorithm
 
             public void NewBestChromosome(Schedule newChromosome, bool showGraphical)
             {
-                showGraphical = newChromosome.Fitness > 0.7;
+                showGraphical = newChromosome.Fitness > 0.8;
                 if (_window.DgvList.Count > 0)
                     _window.SetSchedule(newChromosome, showGraphical);
             }

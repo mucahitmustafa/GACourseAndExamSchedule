@@ -166,21 +166,20 @@ namespace GACourseAndExamSchedule.Data.Writer
                 int _startRow = 0;
                 _rooms.ForEach(r =>
                 {
-                    CreateTable(_ws, r.Name, _startRow);
+                    string _roomName = r.Name + (r.IsLab ? " (Lab)" : "");
+                    CreateTable(_ws, _roomName, _startRow);
                     _startRow += TIME_SPANS.Length + 1 + TABLE_ROW_SPACING;
                 });
 
-                int _numberOfRooms = _rooms.Count;
-                int _daySize = schedule.day_Hours * _numberOfRooms;
-
+                int _daySize = schedule.day_Hours * schedule.day_count;
                 foreach (KeyValuePair<CourseClass, int> it in courseClasses)
                 {
                     int _pos = it.Value;
-                    int _day = _pos / _daySize;
-                    int _time = _pos % _daySize;
-                    int _roomId = _time / schedule.day_Hours;
+                    int _roomId = _pos / _daySize;
+                    int _dayTime = _pos % _daySize;
+                    int _day = _dayTime / schedule.day_Hours;
                     _startRow = _roomId * (TABLE_ROW_SPACING + 1 + TIME_SPANS.Length);
-                    _time = (_time % schedule.day_Hours) + _startRow;
+                    int _time = (_dayTime % schedule.day_Hours) + _startRow;
                     int _dur = it.Key.Duration;
 
                     CourseClass _cc = it.Key;
@@ -196,7 +195,6 @@ namespace GACourseAndExamSchedule.Data.Writer
                     _ws.Cells[_time + 1, _day + 1].Value = $"{_cc.Course.Name}\n{_cc.Prelector.Name}\n{_groups_Name}";
                     _ws.Cells[_time + 1, _day + 1].Style = _anyCellStyle;
 
-                    // Merge Cells
                     try
                     {
                         if (_cc.Duration > 1) _ws.Cells.GetSubrangeAbsolute(_time + 1, _day + 1, _time + _dur, _day + 1).Merged = true;
@@ -234,20 +232,17 @@ namespace GACourseAndExamSchedule.Data.Writer
                     _startRow += TIME_SPANS.Length + 1 + TABLE_ROW_SPACING;
                 });
 
-                int _numberOfRooms = Algorithm.Configuration.GetInstance.GetNumberOfRooms();
-                int _daySize = schedule.day_Hours * _numberOfRooms;
-
+                int _daySize = schedule.day_Hours * schedule.day_count;
                 _groups.ForEach(group =>
                 {
-
                     foreach (KeyValuePair<CourseClass, int> it in courseClasses.Where(cc => cc.Key.StudentGroups.Contains(group)).ToList())
                     {
                         int _pos = it.Value;
-                        int _day = _pos / _daySize;
-                        int _time = _pos % _daySize;
-                        int _roomId = _time / schedule.day_Hours;
+                        int _roomId = _pos / _daySize;
+                        int _dayTime = _pos % _daySize;
+                        int _day = _dayTime / schedule.day_Hours;
                         _startRow = _groups.IndexOf(group) * (TABLE_ROW_SPACING + 1 + TIME_SPANS.Length);
-                        _time = (_time % schedule.day_Hours) + _startRow;
+                        int _time = (_dayTime % schedule.day_Hours) + _startRow;
                         int _dur = it.Key.Duration;
 
                         CourseClass _cc = it.Key;
@@ -263,7 +258,6 @@ namespace GACourseAndExamSchedule.Data.Writer
                         _ws.Cells[_time + 1, _day + 1].Value = $"{_cc.Course.Name}\n{_cc.Prelector.Name}\n{_room.Name}";
                         _ws.Cells[_time + 1, _day + 1].Style = _anyCellStyle;
 
-                    // Merge Cells
                     try
                         {
                             if (_cc.Duration > 1) _ws.Cells.GetSubrangeAbsolute(_time + 1, _day + 1, _time + _dur, _day + 1).Merged = true;
@@ -302,20 +296,17 @@ namespace GACourseAndExamSchedule.Data.Writer
                     _startRow += TIME_SPANS.Length + 1 + TABLE_ROW_SPACING;
                 });
 
-                int _numberOfRooms = Algorithm.Configuration.GetInstance.GetNumberOfRooms();
-                int _daySize = schedule.day_Hours * _numberOfRooms;
-
+                int _daySize = schedule.day_Hours * schedule.day_count;
                 _branchs.ForEach(branch =>
                 {
-
                     foreach (KeyValuePair<CourseClass, int> it in courseClasses.Where(cc => cc.Key.StudentGroups.Where(g => g.Branch.Equals(branch)).Any()).ToList())
                     {
                         int _pos = it.Value;
-                        int _day = _pos / _daySize;
-                        int _time = _pos % _daySize;
-                        int _roomId = _time / schedule.day_Hours;
+                        int _roomId = _pos / _daySize;
+                        int _dayTime = _pos % _daySize;
+                        int _day = _dayTime / schedule.day_Hours;
                         _startRow = _branchs.IndexOf(branch) * (TABLE_ROW_SPACING + 1 + TIME_SPANS.Length);
-                        _time = (_time % schedule.day_Hours) + _startRow;
+                        int _time = (_dayTime % schedule.day_Hours) + _startRow;
                         int _dur = it.Key.Duration;
 
                         CourseClass _cc = it.Key;
@@ -324,9 +315,12 @@ namespace GACourseAndExamSchedule.Data.Writer
                         string _groups_Name = "";
                         foreach (var gs in _cc.StudentGroups)
                         {
-                            _groups_Name += gs.Name + "  ";
+                            if (gs.Branch.Equals(branch))
+                            {
+                                _groups_Name += " " + gs.Degree;
+                            }
                         }
-                        _groups_Name = _groups_Name.Trim();
+                        _groups_Name = branch + _groups_Name;
 
                         if (_ws.Cells[_time + 1, _day + 1].Value == null || string.IsNullOrEmpty(_ws.Cells[_time + 1, _day + 1].Value.ToString()))
                         {
@@ -341,7 +335,7 @@ namespace GACourseAndExamSchedule.Data.Writer
                             string _sameCellGroupsName = _oldCellValue.Substring(_oldCellValue.LastIndexOf("\n")).Replace("\n", "");
                             string _sameCellRoomName = _oldCellValue.Replace(_sameCellCourseName, "").Replace(_sameCellGroupsName, "").Replace("\n", "");
 
-                            if (!_sameCellCourseName.Equals(_cc.Course.Name))
+                            if (!_sameCellCourseName.Contains(_cc.Course.Name))
                             {
                                 _newCellValue += $"{_sameCellCourseName} | {_cc.Course.Name}\n";
                             } else
@@ -349,7 +343,7 @@ namespace GACourseAndExamSchedule.Data.Writer
                                 _newCellValue += $"{_sameCellCourseName}\n";
                             }
 
-                            if (!_sameCellRoomName.Equals(_room.Name))
+                            if (!_sameCellRoomName.Contains(_room.Name))
                             {
                                 _newCellValue += $"{_sameCellRoomName} | {_room.Name}\n";
                             } else
@@ -357,7 +351,7 @@ namespace GACourseAndExamSchedule.Data.Writer
                                 _newCellValue += $"{_sameCellRoomName}\n";
                             }
                             
-                            if (!_sameCellGroupsName.Equals(_groups_Name))
+                            if (!_sameCellGroupsName.Contains(_groups_Name))
                             {
                                 _newCellValue += $"{_sameCellGroupsName} | {_groups_Name}";
                             } else
@@ -369,7 +363,6 @@ namespace GACourseAndExamSchedule.Data.Writer
                         }
                         _ws.Cells[_time + 1, _day + 1].Style = _anyCellStyle;
 
-                    // Merge Cells
                     try
                         {
                             if (_cc.Duration > 1) _ws.Cells.GetSubrangeAbsolute(_time + 1, _day + 1, _time + _dur, _day + 1).Merged = true;
@@ -407,20 +400,17 @@ namespace GACourseAndExamSchedule.Data.Writer
                     _startRow += TIME_SPANS.Length + 1 + TABLE_ROW_SPACING;
                 });
 
-                int _numberOfRooms = Algorithm.Configuration.GetInstance.GetNumberOfRooms();
-                int _daySize = schedule.day_Hours * _numberOfRooms;
-
-                _prelectors.ForEach(prof =>
+                int _daySize = schedule.day_Hours * schedule.day_count;
+                _prelectors.ForEach(pre =>
                 {
-
-                    foreach (KeyValuePair<CourseClass, int> it in courseClasses.Where(cc => cc.Key.Prelector.Equals(prof)).ToList())
+                    foreach (KeyValuePair<CourseClass, int> it in courseClasses.Where(cc => cc.Key.Prelector.Equals(pre)).ToList())
                     {
                         int _pos = it.Value;
-                        int _day = _pos / _daySize;
-                        int _time = _pos % _daySize;
-                        int _roomId = _time / schedule.day_Hours;
-                        _startRow = _prelectors.IndexOf(prof) * (TABLE_ROW_SPACING + 1 + TIME_SPANS.Length);
-                        _time = (_time % schedule.day_Hours) + _startRow;
+                        int _roomId = _pos / _daySize;
+                        int _dayTime = _pos % _daySize;
+                        int _day = _dayTime / schedule.day_Hours;
+                        _startRow = _prelectors.IndexOf(pre) * (TABLE_ROW_SPACING + 1 + TIME_SPANS.Length);
+                        int _time = (_dayTime % schedule.day_Hours) + _startRow;
                         int _dur = it.Key.Duration;
 
                         CourseClass _cc = it.Key;
@@ -436,7 +426,6 @@ namespace GACourseAndExamSchedule.Data.Writer
                         _ws.Cells[_time + 1, _day + 1].Value = $"{_cc.Course.Name}\n{_room.Name}\n{_groups_Name}";
                         _ws.Cells[_time + 1, _day + 1].Style = _anyCellStyle;
 
-                        // Merge Cells
                         try
                         {
                             if (_cc.Duration > 1) _ws.Cells.GetSubrangeAbsolute(_time + 1, _day + 1, _time + _dur, _day + 1).Merged = true;

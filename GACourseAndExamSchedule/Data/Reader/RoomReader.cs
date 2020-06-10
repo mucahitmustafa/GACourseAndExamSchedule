@@ -119,7 +119,7 @@ namespace GACourseAndExamSchedule.Data.Reader
                             id: _roomId,
                             name: row.ItemArray[_nameColumnNumber].ToString(),
                             capacity: int.Parse(row.ItemArray[_capacityColumnNumber].ToString()),
-                            isLab: row.ItemArray[_typeColumnNumber].ToString().Contains("Lab")
+                            isLab: row.ItemArray[_typeColumnNumber].ToString().ToUpper().Contains("LAB")
                         ));
                         _roomId++;
                     }

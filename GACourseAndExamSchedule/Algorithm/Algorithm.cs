@@ -296,7 +296,7 @@ namespace GACourseAndExamSchedule.Algorithm
             {
                 #region GA for Mutex On
 
-                while (true) //------------------------------------------------------------------------
+                while (true)
                 {
                     if (_state == AlgorithmState.AS_CRITERIA_STOPPED || _state == AlgorithmState.AS_USER_STOPPED)
                     {

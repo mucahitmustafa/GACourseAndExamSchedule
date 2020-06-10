@@ -5,7 +5,6 @@ namespace GACourseAndExamSchedule.Algorithm
 {
     public class CourseClass
     {
-
         public int ID { get; set; }
         public int StudentCount { get; set; }
         public bool RequiresLab { get; set; }
@@ -42,7 +41,7 @@ namespace GACourseAndExamSchedule.Algorithm
                 StudentCount += group.StudentCount;
             }
 
-            StudentCount = StudentCount / roomCount;
+            StudentCount /= roomCount;
         }
 
         
@@ -76,7 +75,7 @@ namespace GACourseAndExamSchedule.Algorithm
             {
                 foreach (StudentGroup group2 in courseClass.StudentGroups)
                 {
-                    if (group1 == group2 || ((group1.Branch == group2.Branch) && (Math.Abs(group1.Degree - group2.Degree) == 1))) return true;
+                    if ((group1.Branch == group2.Branch) && (Math.Abs(group1.Degree - group2.Degree) == 1)) return true;
                 }
             }
             return false;
